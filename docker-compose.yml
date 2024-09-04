@@ -1,0 +1,54 @@
+services:
+  db:
+    image: mysql:8.3.0
+    environment: 
+      MYSQL_DATABASE: studythere
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    restart: always
+    healthcheck:
+      retries: 10
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - "-h"
+        - localhost
+      timeout: 20s
+    volumes:
+      - ./db-data:/var/lib/mysql
+
+  backend:
+    build: ./backend
+    environment:
+      - DATABASE_URL=mysql+pymysql://${DB_USER}:${DB_PASSWORD}@db/studythere
+      - API_HOST=${PUBLIC_URL_ROOT}/api
+      - FRONTEND_HOST=${PUBLIC_URL_ROOT}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SEIUE_CLIENT_ID=${SEIUE_CLIENT_ID}
+      - SEIUE_CLIENT_SECRET=${SEIUE_CLIENT_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+  
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    restart: always
+
+  nginx:
+    image: nginx:stable-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: always
+
+volumes:
+  db-data:
